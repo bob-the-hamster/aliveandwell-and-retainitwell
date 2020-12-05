@@ -16,3 +16,7 @@ store them into Postgres
 * More vigorous command-line argument checking for better error messages
   on wrong arguments
 * More vigorous minimum-require-version testing for requirements.txt
+* Support for understanding json payload responses, and for extracting
+  metrics from it
+* Support for multiple regexes as different values in the kafka data
+* Support for regex extraction of a substring match as a metric

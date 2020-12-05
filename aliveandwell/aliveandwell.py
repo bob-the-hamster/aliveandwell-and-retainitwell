@@ -8,6 +8,7 @@ import argparse
 import time
 import traceback
 import json
+import re
 
 # Pip imports
 from kafka import KafkaProducer
@@ -22,9 +23,9 @@ DEFAULT_DELAY = 60
 
 class Application():
     
-    def __init__(self, website, bootstrap, topic, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY):
-        self._website=website
-        self._delay=delay
+    def __init__(self, website, bootstrap, topic, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY, regex=None):
+        self._website = website
+        self._delay = delay
         
         # Init Kafka producer
         protocol = "PLAINTEXT"
@@ -48,6 +49,10 @@ class Application():
         if self._producer is None:
             print("Unable to connect to Kafka broker")
             sys.exit(1)
+
+        self._regex = None
+        if regex:
+            self._regex = re.compile(regex)
     
     def run(self):
         backoff = self._delay
@@ -86,11 +91,13 @@ class Application():
     def single_check(self):
         print("Checking whether {} is alive and well...".format(self._website))
         r = requests.get(self._website)
-        message = json.dumps({
+        message = {
             "status_code": r.status_code,
             "request-time": r.elapsed.total_seconds(),
-            })
-        result = self._producer.send(self._topic, message.encode("utf-8"))
+            }
+        if self._regex:
+            message["regex_match"] = bool(self._regex.search(r.text))
+        result = self._producer.send(self._topic, json.dumps(message).encode("utf-8"))
         print(message)
 
 
@@ -106,6 +113,7 @@ def aliveandwell_commandline_entrypoint():
     parser.add_argument("--cert", help="A certificate file for SSL connection to Kafka")
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
     parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each website check. Defaults to {} seconds".format(DEFAULT_DELAY))
+    parser.add_argument("--regex", help="An optional regular expression pattern to search for in the response text. If specified, there will be a regex_match metrics that is True or False")
     args = parser.parse_args()
     if args.website is None or args.bootstrap is None or args.topic is None:
         parser.print_help()
@@ -119,6 +127,7 @@ def aliveandwell_commandline_entrypoint():
         cert=args.cert,
         key=args.key,
         delay=args.delay,
+        regex=args.regex,
         )
     app.run()
 
