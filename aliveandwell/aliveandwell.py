@@ -1,32 +1,60 @@
 #!/usr/bin/env python3
 description = "A simple tool to periodically check a website and send metrics to Kafka"
 
+#-----------------------------------------------------------------------
+
 import sys
 import argparse
+import time
 
 # Pip imports
 from kafka import KafkaProducer
+import requests
+
+#-----------------------------------------------------------------------
+
+# Defaults
+DEFAULT_DELAY = 60
 
 #-----------------------------------------------------------------------
 
 class Application():
     
-    def __init__(self, bootstrap, topic, cafile=None, cert=None, key=None):
+    def __init__(self, website, bootstrap, topic, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY):
+        self._website=website
+        self._delay=delay
+        
+        # Init Kafka producer
         protocol = "PLAINTEXT"
         if cafile or cert or key:
             protocol = "SSL"
-        self._producer = KafkaProducer(
-            bootstrap_servers=bootstrap,
-            security_protocol=protocol,
-            ssl_cafile=cafile,
-            ssl_certfile=cert,
-            ssl_keyfile=key,
-            )
         self._topic = topic
+        # Retry if the broker is not available at first
+        self._producer = None
+        for i in range(2):
+            try:
+                self._producer = KafkaProducer(
+                    bootstrap_servers=bootstrap,
+                    security_protocol=protocol,
+                    ssl_cafile=cafile,
+                    ssl_certfile=cert,
+                    ssl_keyfile=key,
+                    )
+            except kafka.errors.NoBrokersAvailable as e:
+                print("{} trying again in 10 seconds ({}/3)".format(str(e), i+1))
+                time.sleep(10)
+        if self._producer is None:
+            print("Unable to connect to Kafka broker")
+            sys.exit(1)
     
     def run(self):
-        result = self._producer.send(self._topic, b'LoremIpsumDolorSitAmit')
-        print(result)
+        while True:
+            print("Checking whether {} is alive and well...".format(self._website))
+            r = requests.get(self._website)
+            print(r)
+            time.sleep(self._delay)
+        #result = self._producer.send(self._topic, b'LoremIpsumDolorSitAmit')
+        #print(result)
 
 
 
@@ -34,22 +62,26 @@ class Application():
 
 def aliveandwell_commandline_entrypoint():
     parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("website", nargs="?", help="The website url to monitor")
     parser.add_argument("-b", "--bootstrap", help="A list of one or more Kafka bootstrap servers, separated by commas")
     parser.add_argument("-t", "--topic", help="The name of the Kafka topic to write to")
     parser.add_argument("--cafile", help="A certificate authority file for SSL connection to Kafka")
     parser.add_argument("--cert", help="A certificate file for SSL connection to Kafka")
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
+    parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each website check. Defaults to {} seconds".format(DEFAULT_DELAY))
     args = parser.parse_args()
-    if args.bootstrap is None or args.topic is None:
-        print("You must specify at least one kafka bootstrap server and a kafka topic name\n")
+    if args.website is None or args.bootstrap is None or args.topic is None:
         parser.print_help()
+        print("\nYou must specify the website url, and at least one kafka bootstrap server and a kafka topic name\n")
         sys.exit()
     app = Application(
+        website=args.website,
         bootstrap=args.bootstrap.split(","),
         topic=args.topic,
         cafile=args.cafile,
         cert=args.cert,
         key=args.key,
+        delay=args.delay,
         )
     app.run()
 
