@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-description = "A simple tool to periodically check a website and send metrics to Kafka"
+description = "A simple tool to periodically check a website and send metrics to Kafka. Sibling to the retainitwell tool"
 
 #-----------------------------------------------------------------------
 
@@ -9,9 +9,10 @@ import time
 import traceback
 import json
 import re
+from datetime import datetime
 
 # Pip imports
-from kafka import KafkaProducer
+import kafka
 import requests
 
 #-----------------------------------------------------------------------
@@ -36,7 +37,7 @@ class Application():
         self._producer = None
         for i in range(2):
             try:
-                self._producer = KafkaProducer(
+                self._producer = kafka.KafkaProducer(
                     bootstrap_servers=bootstrap,
                     security_protocol=protocol,
                     ssl_cafile=cafile,
@@ -92,6 +93,7 @@ class Application():
         print("Checking whether {} is alive and well...".format(self._website))
         r = requests.get(self._website)
         message = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
             "status_code": r.status_code,
             "request-time": r.elapsed.total_seconds(),
             }
