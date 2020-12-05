@@ -25,7 +25,8 @@ class Application():
         self._topic = topic
     
     def run(self):
-        self._producer.send(self._topic, b'LoremIpsumDolorSitAmit')
+        result = self._producer.send(self._topic, b'LoremIpsumDolorSitAmit')
+        print(result)
 
 
 
