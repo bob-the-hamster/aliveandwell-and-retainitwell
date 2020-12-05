@@ -10,7 +10,7 @@ store them into Postgres
 * Read a configuration file as an alternative to command-line arguments
 * Support scraping multiple websites in parallel
 * Support for optional http auth for the websites being checked
-* Exponential backoff and retry for catch-all exceptions
+* Decide if I want to enable retries for failed sends
 * Support more Kafka connection options besides just PLAINTEXT and SSL
 * Support other time specifications besides seconds for delay argument
 * More vigorous command-line argument checking for better error messages

@@ -6,6 +6,7 @@ description = "A simple tool to periodically check a website and send metrics to
 import sys
 import argparse
 import time
+import traceback
 
 # Pip imports
 from kafka import KafkaProducer
@@ -48,11 +49,43 @@ class Application():
             sys.exit(1)
     
     def run(self):
+        backoff = self._delay
         while True:
-            print("Checking whether {} is alive and well...".format(self._website))
-            r = requests.get(self._website)
-            print(r)
-            time.sleep(self._delay)
+            try:
+                t = time.time()
+                #raise Exception("Foo") # Fake error for testing backoff
+                
+                # Perform the actual check-pass
+                self.single_check()
+                # Handle the delay logic
+                elapsed = time.time() - t
+                if elapsed > self._delay:
+                    print("Check cycle took longer than the delay ({:0.1f} > {}), so skipping any delay.".format(elapsed, self._delay))
+                else:
+                    sleep_by = self._delay - elapsed
+                    print("Sleeping {:0.1f} seconds before trying again".format(sleep_by))
+                    time.sleep(sleep_by)
+                
+                # A check pass completed successfully!
+                backoff = self._delay
+                
+            except KeyboardInterrupt:
+                print("\nCancelled by user, exiting...")
+                sys.exit()
+                
+            except Exception as e:
+                # Any failure in this loop should cause a retry, with a growing backoff
+                # (but don't retry less than once every 6 hours)
+                traceback.print_exc()
+                print("A error occured, trying again in {} seconds".format(backoff))
+                time.sleep(backoff)
+                backoff = min(int(max(backoff, 1) * 2), 60*60*6)
+                
+
+    def single_check(self):
+        print("Checking whether {} is alive and well...".format(self._website))
+        r = requests.get(self._website)
+        print(r)
         #result = self._producer.send(self._topic, b'LoremIpsumDolorSitAmit')
         #print(result)
 
