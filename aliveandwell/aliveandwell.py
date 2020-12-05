@@ -7,6 +7,7 @@ import sys
 import argparse
 import time
 import traceback
+import json
 
 # Pip imports
 from kafka import KafkaProducer
@@ -85,9 +86,12 @@ class Application():
     def single_check(self):
         print("Checking whether {} is alive and well...".format(self._website))
         r = requests.get(self._website)
-        print(r)
-        #result = self._producer.send(self._topic, b'LoremIpsumDolorSitAmit')
-        #print(result)
+        message = json.dumps({
+            "status_code": r.status_code,
+            "request-time": r.elapsed.total_seconds(),
+            })
+        result = self._producer.send(self._topic, message.encode("utf-8"))
+        print(message)
 
 
 
