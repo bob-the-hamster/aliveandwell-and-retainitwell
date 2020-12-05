@@ -1,5 +1,17 @@
 import setuptools
 
+with open("requirements.txt") as f:
+    # Read the lines of requirements.txt and split them
+    # into a simple list of package name strings
+    # (skipping blanks and comments)
+    requirements = []
+    for line in f.readlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            requirements.append(line)
+    
+print(requirements)
+
 setuptools.setup(
     name="aliveandwell-and-retainitwell",
     version="0.1",
@@ -17,4 +29,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
         ],
     python_requires='>=3.5',
+    install_requires=requirements,
 )

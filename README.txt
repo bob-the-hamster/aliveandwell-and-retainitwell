@@ -11,3 +11,4 @@ store them into Postgres
 * Support more Kafka connection options besides just PLAINTEXT and SSL
 * More vigorous command-line argument checking for better error messages
   on wrong arguments
+* More vigorous minimum-require-version testing for requirements.txt
