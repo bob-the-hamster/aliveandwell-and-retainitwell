@@ -1,0 +1,6 @@
+# Ignore the folder where I am keeping my SSL certs
+auth/
+
+# Ignore python cruft
+aliveandwell/__pycache__/
+aliveandwell_and_retainitwell.egg-info/
