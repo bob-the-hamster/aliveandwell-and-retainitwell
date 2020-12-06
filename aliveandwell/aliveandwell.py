@@ -93,13 +93,14 @@ class Application():
         print("Checking whether {} is alive and well...".format(self._website))
         r = requests.get(self._website)
         message = {
+            "url": self._website,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "status_code": r.status_code,
             "request-time": r.elapsed.total_seconds(),
             }
         if self._regex:
             message["regex_match"] = bool(self._regex.search(r.text))
-        result = self._producer.send(self._topic, json.dumps(message).encode("utf-8"))
+        result = self._producer.send(self._topic, json.dumps(message, sort_keys=True).encode("utf-8"))
         print(message)
 
 
