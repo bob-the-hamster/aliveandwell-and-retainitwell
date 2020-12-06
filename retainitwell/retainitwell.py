@@ -257,6 +257,13 @@ def retainitwell_commandline_entrypoint():
         parser.print_help()
         print("\nYou must specify the porstgres server uri, and at least one kafka bootstrap server and a kafka topic name\n")
         sys.exit()
+    if args.drop_table:
+        answer = input("You used the --drop-table argument to delete and re-create table {}. Are you sure? (yes/no): ".format(args.table))
+        if answer.lower() == "yes":
+            print("Okay! You know best!")
+        else:
+            print("Quitting...")
+            sys.exit(1)
     app = Application(
         postgres_uri=args.postgres_uri,
         table=args.table,

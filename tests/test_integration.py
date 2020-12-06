@@ -89,6 +89,7 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             cert=self._cert,
             key=self._key,
             delay=-1,
+            drop_table=True.
             )
         
 

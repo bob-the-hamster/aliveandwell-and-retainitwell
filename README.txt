@@ -33,7 +33,7 @@ python3 -m unittest discover -s tests
 ```
 
 # Wishlist
-
+* More tests!
 * Add InfluxDB write support in addition to Postgres
 * Figure out how to make the Grafana Postgres Datasource work for
   visualization
