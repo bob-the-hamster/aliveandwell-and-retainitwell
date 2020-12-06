@@ -24,12 +24,14 @@ from psycopg2.extras import RealDictCursor
 # Defaults
 DEFAULT_GROUP_ID = "retainitwell_consumer_group"
 DEFAULT_DELAY = 15
+DEFAULT_TABLE = "aliveandwell_metrics"
 
 #-----------------------------------------------------------------------
 
 class Application():
     
-    def __init__(self, postgres_uri, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY, drop_table=False):
+    def __init__(self, postgres_uri, table, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY, drop_table=False):
+        self._table = table
         self._topic = topic
         self._group_id = group_id
         self._client_id = "retainitwell-on-{}".format(platform.node())
@@ -68,7 +70,7 @@ class Application():
 
     def _init_postgres(self, postgres_uri):
         self._pg = psycopg2.connect(postgres_uri)
-        self._table = "aliveandwell_metrics"
+        # After connecting, make sure the table is created
         with self._cursor() as cur:
             cur.execute("""
                 SELECT table_name FROM information_schema.tables
@@ -194,8 +196,9 @@ key=kafka_service.key
 
 [postgres]
 uri=postgres://user:pass@hostname:portnumber/databasename?sslmode=require
+table={}
 
-""".format(DEFAULT_DELAY, DEFAULT_GROUP_ID)
+""".format(DEFAULT_DELAY, DEFAULT_GROUP_ID, DEFAULT_TABLE)
 
 def handle_config_file(args):
     if args.init:
@@ -220,6 +223,7 @@ def handle_config_file(args):
         if not args.cert:      args.cert      = config.get("kafka", "cert", fallback=None)
         if not args.key:       args.key       = config.get("kafka", "key", fallback=None)
         if not args.postgres_uri: args.postgres_uri = config.get("postgres", "uri", fallback=None)
+        if not args.table:     args.table     = config.get("postgres", "table", fallback=DEFAULT_TABLE)
     else:
         print("Configuration file {} does not exist. Use --init if you want to create an example config.".format(args.config))
     return args
@@ -238,6 +242,7 @@ def retainitwell_commandline_entrypoint():
     parser.add_argument("--cert", help="A certificate file for SSL connection to Kafka")
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
     parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each poll from Kafka. Defaults to {} seconds".format(DEFAULT_DELAY))
+    parser.add_argument("--table", default=DEFAULT_TABLE, help="The name of the Postgres table where the metrics should be written. It will be created if it does not exist already.")
     parser.add_argument("--drop-table", action="store_true", help="Drop the Postgres table, and re-create it. Destructive!")
     args = parser.parse_args()
     args = handle_config_file(args)
@@ -247,6 +252,7 @@ def retainitwell_commandline_entrypoint():
         sys.exit()
     app = Application(
         postgres_uri=args.postgres_uri,
+        table=args.table,
         bootstrap=args.bootstrap.split(","),
         topic=args.topic,
         group_id=args.group,
