@@ -19,9 +19,12 @@ setuptools.setup(
     author_email="james.robert.paige@gmail.com",
     description="Monitors a website and sends the metrics to Kafka",
     url="https://github.com/bob-the-hamster/aliveandwell-and-retainitwell",
-    packages=["aliveandwell"],
+    packages=["aliveandwell", "retainitwell"],
     entry_points = {
-        'console_scripts': ['aliveandwell=aliveandwell:aliveandwell_commandline_entrypoint'],
+        'console_scripts': [
+            'aliveandwell=aliveandwell:aliveandwell_commandline_entrypoint',
+            'retainitwell=retainitwell:retainitwell_commandline_entrypoint',
+            ],
         },
     classifiers=[
         "Programming Language :: Python :: 3",

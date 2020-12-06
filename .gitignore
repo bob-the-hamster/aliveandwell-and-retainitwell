@@ -3,4 +3,6 @@ auth/
 
 # Ignore python cruft
 aliveandwell/__pycache__/
+retainitwell/__pycache__/
 aliveandwell_and_retainitwell.egg-info/
+
