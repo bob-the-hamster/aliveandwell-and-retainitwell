@@ -14,6 +14,8 @@ from pprint import pprint
 
 # Pip imports
 import kafka
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 #-----------------------------------------------------------------------
 
@@ -25,10 +27,14 @@ DEFAULT_DELAY = 15
 
 class Application():
     
-    def __init__(self, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY):
+    def __init__(self, postgres_uri, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY):
+        self._topic = topic
         self._group_id = group_id
         self._client_id = "retainitwell-on-{}".format(platform.node())
         self._delay = delay
+        
+        # Postgres connection
+        self._init_postgres(postgres_uri)
         
         # Init Kafka Consumer
         protocol = "PLAINTEXT"
@@ -40,7 +46,7 @@ class Application():
         for i in range(2):
             try:
                 self._consumer = kafka.KafkaConsumer(
-                    topic,
+                    self._topic,
                     auto_offset_reset="earliest",
                     bootstrap_servers=bootstrap,
                     client_id=self._client_id,
@@ -56,6 +62,30 @@ class Application():
         if self._consumer is None:
             print("Unable to connect to Kafka broker")
             sys.exit(1)
+
+    def _init_postgres(self, postgres_uri):
+        self._pg = psycopg2.connect(postgres_uri)
+        self._table = "aliveandwell_metrics"
+        with self._cursor() as cur:
+            cur.execute("""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'public'
+                """)
+            table_list = [x["table_name"] for x in cur.fetchall()]
+            print("Existing table list: {}".format(",".join(table_list)))
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS {} (
+                    id    SERIAL PRIMARY KEY,
+                    data  JSON NOT NULL
+                )
+                """.format(self._table))
+            self._pg.commit()
+            cur.execute("SELECT * FROM {}".format(self._table))
+            for result in cur.fetchall():
+                print(result)
+    
+    def _cursor(self):
+        return self._pg.cursor(cursor_factory=RealDictCursor)
 
     def run(self):
         backoff = self._delay
@@ -87,11 +117,15 @@ class Application():
                 # (but don't retry less than once every 6 hours)
                 traceback.print_exc()
                 print("A error occured, trying again in {} seconds".format(backoff))
-                time.sleep(backoff)
+                try:
+                    time.sleep(backoff)
+                except KeyboardInterrupt:
+                    print("\nCancelled by user, exiting...")
+                    sys.exit()
                 backoff = min(int(max(backoff, 1) * 2), 60*60*6)
     
     def single_poll(self):
-        print("Polling Kafka with group_id={} client_id={}".format(self._group_id, self._client_id))
+        print("Polling Kafka topic {} with group_id={} client_id={}".format(self._topic, self._group_id, self._client_id))
         metrics_batch = []
         for i in range(2): # Poll twice
             raw_messages = self._consumer.poll(timeout_ms=1000)
@@ -106,13 +140,27 @@ class Application():
                             "decode_error": True,
                             }
                     metrics_batch.append(point)
-        pprint(metrics_batch)
-
+        print("Read {} metrics datapoints".format(len(metrics_batch)))
+        self._write_metrics(metrics_batch)
+        # Let Kafka know we processed the metrics successfully
+        self._consumer.commit()
+    
+    def _write_metrics(self, metrics_batch):
+        print("Writing {} metrics into Postgresql table {}".format(len(metrics_batch), self._table))
+        with self._cursor() as cursor:
+            for point in metrics_batch:
+                query = """
+                    INSERT INTO {} (data)
+                    VALUES(%s)
+                    """.format(self._table)
+                cursor.execute(query, [json.dumps(point)])
+        self._pg.commit()
 
 #-----------------------------------------------------------------------
 
 def retainitwell_commandline_entrypoint():
     parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("postgres_uri", nargs="?", help="Postgres server URI in the format postgres://user:pass@hostname:portnumber/databasename?sslmode=require")
     parser.add_argument("-b", "--bootstrap", help="A list of one or more Kafka bootstrap servers, separated by commas")
     parser.add_argument("-t", "--topic", help="The name of the Kafka topic to read from")
     parser.add_argument("-g", "--group", default=DEFAULT_GROUP_ID, help="Optionally override the kafka consumer group id.. The default is {}".format(DEFAULT_GROUP_ID))
@@ -121,11 +169,12 @@ def retainitwell_commandline_entrypoint():
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
     parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each poll from Kafka. Defaults to {} seconds".format(DEFAULT_DELAY))
     args = parser.parse_args()
-    if args.bootstrap is None or args.topic is None:
+    if args.postgres_uri is None or args.bootstrap is None or args.topic is None:
         parser.print_help()
-        print("\nYou must specify the website url, and at least one kafka bootstrap server and a kafka topic name\n")
+        print("\nYou must specify the porstgres server uri, and at least one kafka bootstrap server and a kafka topic name\n")
         sys.exit()
     app = Application(
+        postgres_uri=args.postgres_uri,
         bootstrap=args.bootstrap.split(","),
         topic=args.topic,
         group_id=args.group,

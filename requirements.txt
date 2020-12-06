@@ -1,3 +1,4 @@
 # This requirements.txt file is read by setup.py
 kafka-python
 requests
+psycopg2-binary

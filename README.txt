@@ -4,7 +4,6 @@ A pair of tools to monitor a website and write the results into a Kafka
 topic, and then separately to read those same metrics from Kafka and
 store them into Postgres
 
-
 # Wishlist
 
 * Read a configuration file as an alternative to command-line arguments
@@ -22,3 +21,11 @@ store them into Postgres
 * Support for regex extraction of a substring match as a metric
 * Generalize some of the looping/retry logic into a shared parent class
 * Add a minimum-delay option for the looping logic
+
+# Thanks to the authors of
+
+* https://kafka-python.readthedocs.io/en/master/apidoc/KafkaProducer.html
+* https://kafka-python.readthedocs.io/en/master/apidoc/KafkaConsumer.html
+* https://help.aiven.io/en/articles/489572-getting-started-with-aiven-kafka
+* https://www.postgresqltutorial.com/postgresql-json/
+* https://help.aiven.io/en/articles/489573-getting-started-with-aiven-postgresql
