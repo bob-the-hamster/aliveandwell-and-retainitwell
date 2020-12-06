@@ -7,6 +7,9 @@ store them into Postgres
 # Wishlist
 
 * Read a configuration file as an alternative to command-line arguments
+* Add InfluxDB write support in addition to Postgres
+* Figure out how to make the Grafana Postgres Datasource work for
+  visualization
 * Support scraping multiple websites in parallel
 * Support for optional http auth for the websites being checked
 * Decide if I want to enable retries for failed sends

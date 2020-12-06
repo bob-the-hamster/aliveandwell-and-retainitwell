@@ -27,11 +27,12 @@ DEFAULT_DELAY = 15
 
 class Application():
     
-    def __init__(self, postgres_uri, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY):
+    def __init__(self, postgres_uri, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY, drop_table=False):
         self._topic = topic
         self._group_id = group_id
         self._client_id = "retainitwell-on-{}".format(platform.node())
         self._delay = delay
+        self._drop_table = drop_table
         
         # Postgres connection
         self._init_postgres(postgres_uri)
@@ -73,16 +74,31 @@ class Application():
                 """)
             table_list = [x["table_name"] for x in cur.fetchall()]
             print("Existing table list: {}".format(",".join(table_list)))
+            if self._drop_table:
+                print("Dropping table {} so it can be re-created...".format(self._table))
+                cur.execute("""
+                    DROP TABLE IF EXISTS {}
+                    """.format(self._table))
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS {} (
                     id    SERIAL PRIMARY KEY,
+                    time  TIMESTAMPTZ NOT NULL,
                     data  JSON NOT NULL
                 )
                 """.format(self._table))
             self._pg.commit()
-            cur.execute("SELECT * FROM {}".format(self._table))
-            for result in cur.fetchall():
-                print(result)
+            
+            # Test and see what values are already there
+            cur.execute("""
+                 SELECT * FROM {}
+                 ORDER BY time DESC 
+                 LIMIT 3
+                 """.format(self._table))
+            results = [x for x in reversed(cur.fetchall())]
+            if len(results) > 0:
+                print("Reading back the most recent metrics from the table...")
+                for r in results:
+                    print("{} data={}".format(r["id"], r["data"]))
     
     def _cursor(self):
         return self._pg.cursor(cursor_factory=RealDictCursor)
@@ -150,10 +166,12 @@ class Application():
         with self._cursor() as cursor:
             for point in metrics_batch:
                 query = """
-                    INSERT INTO {} (data)
-                    VALUES(%s)
+                    INSERT INTO {} (time, data)
+                    VALUES(%s, %s)
                     """.format(self._table)
-                cursor.execute(query, [json.dumps(point)])
+                time_str = point["timestamp"]
+                data_str = json.dumps(point)
+                cursor.execute(query, (time_str, data_str))
         self._pg.commit()
 
 #-----------------------------------------------------------------------
@@ -168,6 +186,7 @@ def retainitwell_commandline_entrypoint():
     parser.add_argument("--cert", help="A certificate file for SSL connection to Kafka")
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
     parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each poll from Kafka. Defaults to {} seconds".format(DEFAULT_DELAY))
+    parser.add_argument("--drop-table", action="store_true", help="Drop the Postgres table, and re-create it. Destructive!")
     args = parser.parse_args()
     if args.postgres_uri is None or args.bootstrap is None or args.topic is None:
         parser.print_help()
@@ -182,6 +201,7 @@ def retainitwell_commandline_entrypoint():
         cert=args.cert,
         key=args.key,
         delay=args.delay,
+        drop_table=args.drop_table,
         )
     app.run()
 
