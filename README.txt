@@ -6,7 +6,6 @@ store them into Postgres
 
 # Wishlist
 
-* Read a configuration file as an alternative to command-line arguments
 * Add InfluxDB write support in addition to Postgres
 * Figure out how to make the Grafana Postgres Datasource work for
   visualization
@@ -24,6 +23,11 @@ store them into Postgres
 * Support for regex extraction of a substring match as a metric
 * Generalize some of the looping/retry logic into a shared parent class
 * Add a minimum-delay option for the looping logic
+
+# Tested with
+* Python 3.5 on Debian 9
+* Kafka 2.6 on Aiven.io
+* Postgres 12.5 on Aiven.io
 
 # Thanks to the authors of
 
