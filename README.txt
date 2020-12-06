@@ -20,3 +20,5 @@ store them into Postgres
   metrics from it
 * Support for multiple regexes as different values in the kafka data
 * Support for regex extraction of a substring match as a metric
+* Generalize some of the looping/retry logic into a shared parent class
+* Add a minimum-delay option for the looping logic

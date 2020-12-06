@@ -70,7 +70,7 @@ class Application():
                     print("Check cycle took longer than the delay ({:0.1f} > {}), so skipping any delay.".format(elapsed, self._delay))
                 else:
                     sleep_by = self._delay - elapsed
-                    print("Sleeping {:0.1f} seconds before trying again".format(sleep_by))
+                    print("Sleeping {:0.1f} seconds before checking again".format(sleep_by))
                     time.sleep(sleep_by)
                 
                 # A check pass completed successfully!

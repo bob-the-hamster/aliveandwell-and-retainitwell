@@ -19,14 +19,16 @@ import kafka
 
 # Defaults
 DEFAULT_GROUP_ID = "retainitwell_consumer_group"
+DEFAULT_DELAY = 15
 
 #-----------------------------------------------------------------------
 
 class Application():
     
-    def __init__(self, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None):
+    def __init__(self, bootstrap, topic, group_id=DEFAULT_GROUP_ID, cafile=None, cert=None, key=None, delay=DEFAULT_DELAY):
         self._group_id = group_id
         self._client_id = "retainitwell-on-{}".format(platform.node())
+        self._delay = delay
         
         # Init Kafka Consumer
         protocol = "PLAINTEXT"
@@ -54,8 +56,41 @@ class Application():
         if self._consumer is None:
             print("Unable to connect to Kafka broker")
             sys.exit(1)
-    
+
     def run(self):
+        backoff = self._delay
+        while True:
+            try:
+                t = time.time()
+                #raise Exception("Foo") # Fake error for testing backoff
+                
+                # Perform the actual polling-pass
+                self.single_poll()
+                # Handle the delay logic
+                elapsed = time.time() - t
+                if elapsed > self._delay:
+                    print("Polling cycle took longer than the delay ({:0.1f} > {}), so skipping any delay.".format(elapsed, self._delay))
+                else:
+                    sleep_by = self._delay - elapsed
+                    print("Sleeping {:0.1f} seconds before polling again".format(sleep_by))
+                    time.sleep(sleep_by)
+                
+                # A check pass completed successfully!
+                backoff = self._delay
+                
+            except KeyboardInterrupt:
+                print("\nCancelled by user, exiting...")
+                sys.exit()
+                
+            except Exception as e:
+                # Any failure in this loop should cause a retry, with a growing backoff
+                # (but don't retry less than once every 6 hours)
+                traceback.print_exc()
+                print("A error occured, trying again in {} seconds".format(backoff))
+                time.sleep(backoff)
+                backoff = min(int(max(backoff, 1) * 2), 60*60*6)
+    
+    def single_poll(self):
         print("Polling Kafka with group_id={} client_id={}".format(self._group_id, self._client_id))
         metrics_batch = []
         for i in range(2): # Poll twice
@@ -84,6 +119,7 @@ def retainitwell_commandline_entrypoint():
     parser.add_argument("--cafile", help="A certificate authority file for SSL connection to Kafka")
     parser.add_argument("--cert", help="A certificate file for SSL connection to Kafka")
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
+    parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each poll from Kafka. Defaults to {} seconds".format(DEFAULT_DELAY))
     args = parser.parse_args()
     if args.bootstrap is None or args.topic is None:
         parser.print_help()
@@ -96,6 +132,7 @@ def retainitwell_commandline_entrypoint():
         cafile=args.cafile,
         cert=args.cert,
         key=args.key,
+        delay=args.delay,
         )
     app.run()
 
