@@ -87,7 +87,11 @@ class Application():
                 # (but don't retry less than once every 6 hours)
                 traceback.print_exc()
                 print("A error occured, trying again in {} seconds".format(backoff))
-                time.sleep(backoff)
+                try:
+                    time.sleep(backoff)
+                except KeyboardInterrupt:
+                    print("\nCancelled by user, exiting...")
+                    sys.exit()
                 backoff = min(int(max(backoff, 1) * 2), 60*60*6)
                 
 
@@ -113,7 +117,7 @@ class Application():
 EXAMPLE_CONFIG = """# Configuration file for aliveandwell tool
 [monitor]
 website=https://put.the.real.url.here/
-delay=60
+delay={}
 #regex=
 
 [kafka]
@@ -124,12 +128,12 @@ topic=mytopic
 cafile=kafka_ca.pem
 cert=kafka_service.cert
 key=kafka_service.key
-"""
+""".format(DEFAULT_DELAY)
 
 def handle_config_file(args):
     if args.init:
         if os.path.exists(args.config):
-            print("--init option was specified but config file {} already exists.")
+            print("--init option was specified but config file {} already exists.".format(args.config))
             sys.exit(1)
         with open(args.config, "w") as f:
             f.write(EXAMPLE_CONFIG)

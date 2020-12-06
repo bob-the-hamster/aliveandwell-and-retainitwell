@@ -4,6 +4,7 @@ description = "A simple tool to fetch website metrics from Kafka and retain them
 #-----------------------------------------------------------------------
 
 import sys
+import os
 import argparse
 import time
 import traceback
@@ -11,6 +12,7 @@ from datetime import datetime
 import json
 import platform
 from pprint import pprint
+import configparser
 
 # Pip imports
 import kafka
@@ -176,9 +178,59 @@ class Application():
 
 #-----------------------------------------------------------------------
 
+EXAMPLE_CONFIG = """# Configuration file for retainitwell tool
+[polling]
+delay={}
+
+[kafka]
+# You can have multiple bootstrap hosts separated by commas
+bootstrap=hostname:port
+topic=mytopic
+group={}
+# These files are for the SSL connection
+cafile=kafka_ca.pem
+cert=kafka_service.cert
+key=kafka_service.key
+
+[postgres]
+uri=postgres://user:pass@hostname:portnumber/databasename?sslmode=require
+
+""".format(DEFAULT_DELAY, DEFAULT_GROUP_ID)
+
+def handle_config_file(args):
+    if args.init:
+        if os.path.exists(args.config):
+            print("--init option was specified but config file {} already exists.".format(args.config))
+            sys.exit(1)
+        with open(args.config, "w") as f:
+            f.write(EXAMPLE_CONFIG)
+        os.chmod(args.config, 0o600)
+        print("Wrote a sample configuration to {}".format(args.config))
+        sys.exit(1)
+        
+    if os.path.exists(args.config):
+        print("Reading configuration file {}".format(args.config))
+        config = configparser.ConfigParser()
+        with open(args.config) as f:
+            config.read_file(f)
+        if not args.delay:     args.delay     = config.get("polling", "delay", fallback=DEFAULT_DELAY)
+        if not args.bootstrap: args.bootstrap = config.get("kafka", "bootstrap", fallback=None)
+        if not args.topic:     args.topic     = config.get("kafka", "topic", fallback=None)
+        if not args.cafile:    args.cafile    = config.get("kafka", "cafile", fallback=None)
+        if not args.cert:      args.cert      = config.get("kafka", "cert", fallback=None)
+        if not args.key:       args.key       = config.get("kafka", "key", fallback=None)
+        if not args.postgres_uri: args.postgres_uri = config.get("postgres", "uri", fallback=None)
+    else:
+        print("Configuration file {} does not exist. Use --init if you want to create an example config.".format(args.config))
+    return args
+
+#-----------------------------------------------------------------------
+
 def retainitwell_commandline_entrypoint():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("postgres_uri", nargs="?", help="Postgres server URI in the format postgres://user:pass@hostname:portnumber/databasename?sslmode=require")
+    parser.add_argument("-c", "--config", default="retainitwell.ini", help="A configuration file to read options from. Command-line arguments override options found in the config file.")
+    parser.add_argument("--init", action="store_true", help="Create a sample ini file.")
     parser.add_argument("-b", "--bootstrap", help="A list of one or more Kafka bootstrap servers, separated by commas")
     parser.add_argument("-t", "--topic", help="The name of the Kafka topic to read from")
     parser.add_argument("-g", "--group", default=DEFAULT_GROUP_ID, help="Optionally override the kafka consumer group id.. The default is {}".format(DEFAULT_GROUP_ID))
@@ -188,6 +240,7 @@ def retainitwell_commandline_entrypoint():
     parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each poll from Kafka. Defaults to {} seconds".format(DEFAULT_DELAY))
     parser.add_argument("--drop-table", action="store_true", help="Drop the Postgres table, and re-create it. Destructive!")
     args = parser.parse_args()
+    args = handle_config_file(args)
     if args.postgres_uri is None or args.bootstrap is None or args.topic is None:
         parser.print_help()
         print("\nYou must specify the porstgres server uri, and at least one kafka bootstrap server and a kafka topic name\n")
