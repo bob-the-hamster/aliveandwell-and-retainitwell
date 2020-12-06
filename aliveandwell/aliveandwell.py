@@ -96,7 +96,7 @@ class Application():
             "url": self._website,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "status_code": r.status_code,
-            "request-time": r.elapsed.total_seconds(),
+            "request_time": r.elapsed.total_seconds(),
             }
         if self._regex:
             message["regex_match"] = bool(self._regex.search(r.text))
