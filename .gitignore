@@ -1,8 +1,11 @@
+# Ignore ini files
+*.ini
+
 # Ignore the folder where I am keeping my SSL certs
 auth/
 
 # Ignore python cruft
-aliveandwell/__pycache__/
-retainitwell/__pycache__/
+*/__pycache__/
+*/*.pyc
 aliveandwell_and_retainitwell.egg-info/
 

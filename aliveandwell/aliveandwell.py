@@ -31,6 +31,7 @@ class Application():
         self._delay = delay
         
         # Init Kafka producer
+        print("Connecting to Kafka as a producer...")
         protocol = "PLAINTEXT"
         if cafile or cert or key:
             protocol = "SSL"
@@ -68,7 +69,9 @@ class Application():
                 self.single_check()
                 # Handle the delay logic
                 elapsed = time.time() - t
-                if elapsed > self._delay:
+                if self._delay == -1:
+                    pass
+                elif elapsed > self._delay:
                     print("Check cycle took longer than the delay ({:0.1f} > {}), so skipping any delay.".format(elapsed, self._delay))
                 else:
                     sleep_by = self._delay - elapsed
@@ -94,6 +97,9 @@ class Application():
                     sys.exit()
                 backoff = min(int(max(backoff, 1) * 2), 60*60*6)
                 
+            if self._delay == -1:
+                "Break after a polling check..."
+                break
 
     def single_check(self):
         print("Checking whether {} is alive and well...".format(self._website))
@@ -170,7 +176,7 @@ def aliveandwell_commandline_entrypoint():
     parser.add_argument("--cafile", help="A certificate authority file for SSL connection to Kafka")
     parser.add_argument("--cert", help="A certificate file for SSL connection to Kafka")
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
-    parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each website check. Defaults to {} seconds".format(DEFAULT_DELAY))
+    parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each website check. Defaults to {} seconds. -1 means test once and quit immediately".format(DEFAULT_DELAY))
     parser.add_argument("--regex", help="An optional regular expression pattern to search for in the response text. If specified, there will be a regex_match metrics that is True or False")
     args = parser.parse_args()
     args = handle_config_file(args)

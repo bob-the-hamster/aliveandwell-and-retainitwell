@@ -4,6 +4,34 @@ A pair of tools to monitor a website and write the results into a Kafka
 topic, and then separately to read those same metrics from Kafka and
 store them into Postgres
 
+aliveandwell is the Kafka producer. It does the website monitoring.
+retainitwell is the Kafka consumer. It stores the metrics in postgres.
+
+# Instructions
+
+The tools are named aliveandwell and retainitwell and they can be installed
+with pip3, or you can directly run the aliveandwell/aliveandwell.py or
+retainitwell/retainitwell.py scripts
+
+Run with --help for command-line arguments.
+Run with --init to write a sample configuration file into the current directory
+
+```
+pip3 install aliveandwell_and_retainitwell
+aliveandwell --init
+retainitwell --init
+```
+
+Edit the configuration files with your Kafka and Postgres connection info
+
+## Running tests
+Integration tests require configuration to communicate with instances of
+kafka and Postgres. The first time you run the tests you will be prompted
+with instructions
+```
+python3 -m unittest discover -s tests
+```
+
 # Wishlist
 
 * Add InfluxDB write support in addition to Postgres

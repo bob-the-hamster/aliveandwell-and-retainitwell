@@ -1,1 +1,2 @@
 from .aliveandwell import aliveandwell_commandline_entrypoint
+from .aliveandwell import Application

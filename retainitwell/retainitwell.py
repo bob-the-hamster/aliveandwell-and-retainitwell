@@ -42,6 +42,7 @@ class Application():
         self._init_postgres(postgres_uri)
         
         # Init Kafka Consumer
+        print("Connecting to Kafka as a consumer...")
         protocol = "PLAINTEXT"
         if cafile or cert or key:
             protocol = "SSL"
@@ -118,7 +119,9 @@ class Application():
                 self.single_poll()
                 # Handle the delay logic
                 elapsed = time.time() - t
-                if elapsed > self._delay:
+                if self._delay == -1:
+                    pass
+                elif elapsed > self._delay:
                     print("Polling cycle took longer than the delay ({:0.1f} > {}), so skipping any delay.".format(elapsed, self._delay))
                 else:
                     sleep_by = self._delay - elapsed
@@ -143,6 +146,10 @@ class Application():
                     print("\nCancelled by user, exiting...")
                     sys.exit()
                 backoff = min(int(max(backoff, 1) * 2), 60*60*6)
+            
+            if self._delay == -1:
+                "Break after a polling check..."
+                break
     
     def single_poll(self):
         print("Polling Kafka topic {} with group_id={} client_id={}".format(self._topic, self._group_id, self._client_id))
@@ -241,7 +248,7 @@ def retainitwell_commandline_entrypoint():
     parser.add_argument("--cafile", help="A certificate authority file for SSL connection to Kafka")
     parser.add_argument("--cert", help="A certificate file for SSL connection to Kafka")
     parser.add_argument("--key", help="A certificate key file for SSL connection to Kafka")
-    parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each poll from Kafka. Defaults to {} seconds".format(DEFAULT_DELAY))
+    parser.add_argument("--delay", type=int, default=DEFAULT_DELAY, help="Number of seconds to wait between each poll from Kafka. Defaults to {} seconds. -1 means poll once and quit immediately".format(DEFAULT_DELAY))
     parser.add_argument("--table", default=DEFAULT_TABLE, help="The name of the Postgres table where the metrics should be written. It will be created if it does not exist already.")
     parser.add_argument("--drop-table", action="store_true", help="Drop the Postgres table, and re-create it. Destructive!")
     args = parser.parse_args()
