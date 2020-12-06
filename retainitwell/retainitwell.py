@@ -8,7 +8,9 @@ import argparse
 import time
 import traceback
 from datetime import datetime
+import json
 import platform
+from pprint import pprint
 
 # Pip imports
 import kafka
@@ -55,12 +57,21 @@ class Application():
     
     def run(self):
         print("Polling Kafka with group_id={} client_id={}".format(self._group_id, self._client_id))
+        metrics_batch = []
         for i in range(2): # Poll twice
             raw_messages = self._consumer.poll(timeout_ms=1000)
             for tp, messages in raw_messages.items():
                 print(tp)
                 for msg in messages:
-                    print("Received: {}".format(msg.value))        
+                    try:
+                        point = json.loads(msg.value.decode('utf-8'))
+                    except Exception:
+                        point = {
+                            "timestamp": datetime.utcnow().isoformat() + "Z",
+                            "decode_error": True,
+                            }
+                    metrics_batch.append(point)
+        pprint(metrics_batch)
 
 
 #-----------------------------------------------------------------------
