@@ -112,9 +112,13 @@ class Application():
             }
         if self._regex:
             message["regex_match"] = bool(self._regex.search(r.text))
+        self._send_to_kafka(message)
+    
+    def _send_to_kafka(self, message):
         result = self._producer.send(self._topic, json.dumps(message, sort_keys=True).encode("utf-8"))
         self._producer.flush()
         print(message)
+        return result
 
 
 

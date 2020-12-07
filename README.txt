@@ -33,7 +33,7 @@ python3 -m unittest discover -s tests
 ```
 
 # Wishlist
-* More tests!
+* More tests! Better tests! :D
 * Add InfluxDB write support in addition to Postgres
 * Figure out how to make the Grafana Postgres Datasource work for
   visualization
@@ -50,6 +50,7 @@ python3 -m unittest discover -s tests
 * Support for multiple regexes as different values in the kafka data
 * Support for regex extraction of a substring match as a metric
 * Generalize some of the looping/retry logic into a shared parent class
+* Create a slightly more high-level convenience wrapper for postgres
 * Add a minimum-delay option for the looping logic
 
 # Tested with

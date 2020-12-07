@@ -2,6 +2,7 @@ import unittest
 import os
 import sys
 import configparser
+from datetime import datetime
 
 import aliveandwell
 import retainitwell
@@ -69,7 +70,7 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
         if not self._table.startswith("test_"):
             raise Exception("Postgres table in test.ini must start with test_")
     
-    def test_sanity(self):
+    def test_kafka_sanity(self):
         alive = aliveandwell.Application(
             website="https://google.com",
             bootstrap=self._bootstrap.split(","),
@@ -89,9 +90,23 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             cert=self._cert,
             key=self._key,
             delay=-1,
-            drop_table=True.
+            drop_table=True,
             )
-        
+        # Run a single retain pass to clear any data in the Kafka topic
+        # that might be left over from a previous testing pass
+        retain.single_poll(store_metrics=False)
+        # Now fake a single check
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        message = {
+            "url": "https://fake.website",
+            "timestamp": timestamp,
+            "status_code": 999,
+            "request_time": 0.1234,
+            }
+        alive._send_to_kafka(message)
+        # Now see if we can get those metrics back from Kafka
+        metrics = retain.single_poll()
+        self.assertGreater(len(metrics), 0)
 
 
 #-----------------------------------------------------------------------

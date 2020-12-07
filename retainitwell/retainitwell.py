@@ -68,10 +68,12 @@ class Application():
         if self._consumer is None:
             print("Unable to connect to Kafka broker")
             sys.exit(1)
-
+    
     def _init_postgres(self, postgres_uri):
         self._pg = psycopg2.connect(postgres_uri)
         # After connecting, make sure the table is created
+        if self._drop_table:
+            self._do_drop_table()
         with self._cursor() as cur:
             cur.execute("""
                 SELECT table_name FROM information_schema.tables
@@ -79,11 +81,6 @@ class Application():
                 """)
             table_list = [x["table_name"] for x in cur.fetchall()]
             print("Existing table list: {}".format(",".join(table_list)))
-            if self._drop_table:
-                print("Dropping table {} so it can be re-created...".format(self._table))
-                cur.execute("""
-                    DROP TABLE IF EXISTS {}
-                    """.format(self._table))
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS {} (
                     id    SERIAL PRIMARY KEY,
@@ -104,6 +101,14 @@ class Application():
                 print("Reading back the most recent metrics from the table...")
                 for r in results:
                     print("{} data={}".format(r["id"], r["data"]))
+
+    def _do_drop_table(self):
+        with self._cursor() as cur:
+            print("Dropping table {} so it can be re-created...".format(self._table))
+            cur.execute("""
+                DROP TABLE IF EXISTS {}
+                """.format(self._table))
+        self._pg.commit()
     
     def _cursor(self):
         return self._pg.cursor(cursor_factory=RealDictCursor)
@@ -151,7 +156,7 @@ class Application():
                 "Break after a polling check..."
                 break
     
-    def single_poll(self):
+    def single_poll(self, store_metrics=True):
         print("Polling Kafka topic {} with group_id={} client_id={}".format(self._topic, self._group_id, self._client_id))
         metrics_batch = []
         for i in range(2): # Poll twice
@@ -168,9 +173,13 @@ class Application():
                             }
                     metrics_batch.append(point)
         print("Read {} metrics datapoints".format(len(metrics_batch)))
-        self._write_metrics(metrics_batch)
+        if store_metrics:
+            self._write_metrics(metrics_batch)
         # Let Kafka know we processed the metrics successfully
         self._consumer.commit()
+        # Returning the metrics is not needed by the main applicaiton loop, but makes
+        # integration testing easier
+        return metrics_batch
     
     def _write_metrics(self, metrics_batch):
         print("Writing {} metrics into Postgresql table {}".format(len(metrics_batch), self._table))
