@@ -33,8 +33,10 @@ python3 -m unittest discover -s tests
 ```
 
 # Wishlist
-* More tests! Better tests! :D
+* Make a minimal Docker-Compose config for running local integration tests
+* Write a Jenkinsfile to run tests, build a pip wheel, and upload to repo
 * Add InfluxDB write support in addition to Postgres
+* More tests! Better tests! :D
 * Figure out how to make the Grafana Postgres Datasource work for
   visualization
 * Support scraping multiple websites in parallel
@@ -44,9 +46,10 @@ python3 -m unittest discover -s tests
 * Support other time specifications besides seconds for delay argument
 * More vigorous command-line argument checking for better error messages
   on wrong arguments
+* Do some version testing with tox
 * More vigorous minimum-require-version testing for requirements.txt
-* Support for understanding json payload responses, and for extracting
-  metrics from it
+* Support for understanding json payload responses from the site we
+  monitor, and for extracting metrics from it
 * Support for multiple regexes as different values in the kafka data
 * Support for regex extraction of a substring match as a metric
 * Generalize some of the looping/retry logic into a shared parent class

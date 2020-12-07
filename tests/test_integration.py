@@ -160,6 +160,21 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
         self.assertEqual(r["data"]["status_code"], 999)
         self.assertEqual(r["data"]["request_time"], 0.1234)
     
+    def test_ZZZ_end_to_end_sanity(self):
+        print(">Do an http check")
+        self.alive.single_check()
+        self.retain._create_table()
+        self.retain.single_poll()
+        print(">Check if the metrics made it all the way to Postgres")
+        db_rows = self.retain._readback_recent(1)
+        self.assertEqual(len(db_rows), 1)
+        r = db_rows[0]
+        self.assertGreater(r["id"], 0)
+        self.assertEqual(r["data"]["url"], "https://google.com")
+        self.assertLess(r["data"]["timestamp"], datetime.utcnow().isoformat() + "Z")
+        self.assertGreater(r["data"]["request_time"], 0.0)
+        
+    
 
 #-----------------------------------------------------------------------
 
