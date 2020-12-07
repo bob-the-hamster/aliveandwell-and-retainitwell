@@ -37,6 +37,7 @@ python3 -m unittest discover -s tests
 * Write a Jenkinsfile to run tests, build a pip wheel, and upload to repo
 * Add InfluxDB write support in addition to Postgres
 * More tests! Better tests! :D
+* Better error messages for bad/invalid arguments and config
 * Figure out how to make the Grafana Postgres Datasource work for
   visualization
 * Support scraping multiple websites in parallel
@@ -58,6 +59,7 @@ python3 -m unittest discover -s tests
 
 # Tested with
 * Python 3.5 on Debian 9
+* Python 3.6 on CentOS 7
 * Kafka 2.6 on Aiven.io
 * Postgres 12.5 on Aiven.io
 
