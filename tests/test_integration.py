@@ -3,6 +3,7 @@ import os
 import sys
 import configparser
 from datetime import datetime
+from pprint import pprint
 
 import aliveandwell
 import retainitwell
@@ -69,9 +70,7 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             raise Exception("Kafka topic in test.ini must start with test_")
         if not self._table.startswith("test_"):
             raise Exception("Postgres table in test.ini must start with test_")
-    
-    def test_kafka_sanity(self):
-        alive = aliveandwell.Application(
+        self.alive = aliveandwell.Application(
             website="https://google.com",
             bootstrap=self._bootstrap.split(","),
             topic=self._topic,
@@ -80,7 +79,7 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             key=self._key,
             delay=-1,
             )
-        retain = retainitwell.Application(
+        self.retain = retainitwell.Application(
             postgres_uri=self._postgres_uri,
             table=self._table,
             bootstrap=self._bootstrap.split(","),
@@ -92,9 +91,11 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             delay=-1,
             drop_table=True,
             )
+    
+    def test_kafka_sanity(self):
         # Run a single retain pass to clear any data in the Kafka topic
         # that might be left over from a previous testing pass
-        retain.single_poll(store_metrics=False)
+        self.retain.single_poll(store_metrics=False)
         # Now fake a single check
         timestamp = datetime.utcnow().isoformat() + "Z"
         message = {
@@ -103,10 +104,15 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             "status_code": 999,
             "request_time": 0.1234,
             }
-        alive._send_to_kafka(message)
+        self.alive._send_to_kafka(message)
         # Now see if we can get those metrics back from Kafka
-        metrics = retain.single_poll()
-        self.assertGreater(len(metrics), 0)
+        metrics = self.retain.single_poll(store_metrics=False)
+        self.assertEqual(len(metrics), 1)
+        m = metrics[0]
+        self.assertEqual(m["url"], "https://fake.website")
+        self.assertEqual(m["timestamp"], timestamp)
+        self.assertEqual(m["status_code"], 999)
+        self.assertEqual(m["request_time"], 0.1234)
 
 
 #-----------------------------------------------------------------------

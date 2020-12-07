@@ -26,7 +26,7 @@ Edit the configuration files with your Kafka and Postgres connection info
 
 ## Running tests
 Integration tests require configuration to communicate with instances of
-kafka and Postgres. The first time you run the tests you will be prompted
+Kafka and Postgres. The first time you run the tests you will be prompted
 with instructions
 ```
 python3 -m unittest discover -s tests
