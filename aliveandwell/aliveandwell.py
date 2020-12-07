@@ -101,7 +101,7 @@ class Application():
                 "Break after a polling check..."
                 break
 
-    def single_check(self):
+    def single_check(self, store_metrics=True):
         print("Checking whether {} is alive and well...".format(self._website))
         r = requests.get(self._website)
         message = {
@@ -112,7 +112,9 @@ class Application():
             }
         if self._regex:
             message["regex_match"] = bool(self._regex.search(r.text))
-        self._send_to_kafka(message)
+        if store_metrics:
+            self._send_to_kafka(message)
+        return message
     
     def _send_to_kafka(self, message):
         result = self._producer.send(self._topic, json.dumps(message, sort_keys=True).encode("utf-8"))

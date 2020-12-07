@@ -4,6 +4,7 @@ import sys
 import configparser
 from datetime import datetime
 from pprint import pprint
+import time
 
 import aliveandwell
 import retainitwell
@@ -38,6 +39,8 @@ table=test_aliveandwell_metrics
 class TestAliveAndWellAndRetainItWell(unittest.TestCase):
     
     def setUp(self):
+        print("<TEST {}>".format(self.id()))
+        print("<SETUP>")
         edit_please = False
 
         # Create the sample test.ini if it is needed
@@ -57,7 +60,7 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
         if edit_please:
             raise Exception("Please edit test.ini with the kafka and postgres connection info for testing")
         
-        print("Integration tests will be based on configuration in test.ini")
+        print(">Integration tests will be based on configuration in test.ini")
         self._bootstrap = config.get("kafka", "bootstrap", fallback=None)
         self._topic     = config.get("kafka", "topic", fallback="")
         self._group     = config.get("kafka", "group", fallback="")
@@ -91,12 +94,34 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             delay=-1,
             drop_table=True,
             )
+        self.do_cleanup()
+        print("</SETUP>")
     
-    def test_kafka_sanity(self):
+    def tearDown(self):
+        print("<TEARDOWN>")
+        self.do_cleanup()
+        self.alive._producer.close()
+        self.retain._consumer.close()
+        print("</TEARDOWN>")
+    
+    def do_cleanup(self):
         # Run a single retain pass to clear any data in the Kafka topic
         # that might be left over from a previous testing pass
+        print(">Make sure kafka topic is empty")
         self.retain.single_poll(store_metrics=False)
-        # Now fake a single check
+        # Clear out the Postgres table
+        print(">Make sure postgres table is empty")
+        self.retain._do_drop_table()
+
+    def test_http_check_sanity(self):
+        print(">Do a check, but don't store it")
+        m = self.alive.single_check(store_metrics=False)
+        # Assert that the check result was valid
+        self.assertEqual(m["url"], "https://google.com")
+        self.assertGreater(m["request_time"], 0.0)
+    
+    def test_kafka_sanity(self):
+        print(">Fake a single check")
         timestamp = datetime.utcnow().isoformat() + "Z"
         message = {
             "url": "https://fake.website",
@@ -105,8 +130,9 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
             "request_time": 0.1234,
             }
         self.alive._send_to_kafka(message)
-        # Now see if we can get those metrics back from Kafka
+        print(">Now see if we can get those metrics back from Kafka")
         metrics = self.retain.single_poll(store_metrics=False)
+        print(">Make sure the metrics are correct")
         self.assertEqual(len(metrics), 1)
         m = metrics[0]
         self.assertEqual(m["url"], "https://fake.website")
@@ -114,6 +140,26 @@ class TestAliveAndWellAndRetainItWell(unittest.TestCase):
         self.assertEqual(m["status_code"], 999)
         self.assertEqual(m["request_time"], 0.1234)
 
+    def test_postgres_write_sanity(self):
+        print(">Write a fake datapoint")
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        metrics_batch = [{
+            "url": "https://fake.website",
+            "timestamp": timestamp,
+            "status_code": 999,
+            "request_time": 0.1234,
+            }]
+        self.retain._create_table()
+        self.retain._write_metrics(metrics_batch)
+        db_rows = self.retain._readback_recent(1)
+        self.assertEqual(len(db_rows), 1)
+        r = db_rows[0]
+        self.assertGreater(r["id"], 0)
+        self.assertEqual(r["data"]["url"], "https://fake.website")
+        self.assertEqual(r["data"]["timestamp"], timestamp)
+        self.assertEqual(r["data"]["status_code"], 999)
+        self.assertEqual(r["data"]["request_time"], 0.1234)
+    
 
 #-----------------------------------------------------------------------
 

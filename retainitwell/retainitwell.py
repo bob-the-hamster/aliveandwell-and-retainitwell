@@ -74,6 +74,12 @@ class Application():
         # After connecting, make sure the table is created
         if self._drop_table:
             self._do_drop_table()
+        self._create_table()
+            
+        # Test and see what values are already there
+        self._readback_recent(3)
+    
+    def _create_table(self):
         with self._cursor() as cur:
             cur.execute("""
                 SELECT table_name FROM information_schema.tables
@@ -89,18 +95,22 @@ class Application():
                 )
                 """.format(self._table))
             self._pg.commit()
-            
-            # Test and see what values are already there
+        
+    
+    def _readback_recent(self, n):
+        results = None
+        with self._cursor() as cur:
             cur.execute("""
                  SELECT * FROM {}
                  ORDER BY time DESC 
-                 LIMIT 3
-                 """.format(self._table))
+                 LIMIT {}
+                 """.format(self._table, n))
             results = [x for x in reversed(cur.fetchall())]
             if len(results) > 0:
-                print("Reading back the most recent metrics from the table...")
+                print("Reading back the {} most recent metrics from the table {} ...".format(n, self._table))
                 for r in results:
                     print("{} data={}".format(r["id"], r["data"]))
+        return results
 
     def _do_drop_table(self):
         with self._cursor() as cur:
@@ -176,7 +186,8 @@ class Application():
         if store_metrics:
             self._write_metrics(metrics_batch)
         # Let Kafka know we processed the metrics successfully
-        self._consumer.commit()
+        if len(metrics_batch) > 0:
+            self._consumer.commit()
         # Returning the metrics is not needed by the main applicaiton loop, but makes
         # integration testing easier
         return metrics_batch
